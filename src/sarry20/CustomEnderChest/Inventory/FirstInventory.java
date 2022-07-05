@@ -1,0 +1,203 @@
+package sarry20.CustomEnderChest.Inventory;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import net.milkbowl.vault.economy.Economy;
+import sarry20.CustomEnderChest.Main;
+
+public class FirstInventory implements Listener {
+	private Main plugin;
+
+	public FirstInventory(Main plugin) {
+		this.plugin = plugin;
+	}
+
+	int start_price = 8000;
+	int accumulator = 500;
+	int finalprice = 0;
+	ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
+
+	@EventHandler
+	public void ClickInventory(InventoryClickEvent event) {
+
+		// inventory Main
+		Player jugador = (Player) event.getWhoClicked();
+		FileConfiguration config = plugin.getCustomConfig();
+		String name = config.getString("Inventory.first_ec_name");
+		String name1 = ChatColor.translateAlternateColorCodes('&', name);
+		Economy econ = plugin.getEconomy();
+		double money = econ.getBalance(jugador);
+		double finalBalance = money - finalprice;
+		if (event.getView().getTitle().equals(name1)) {
+			for (int i = 27; i < 45; i++) { // Starting and ending sellable slot numbers
+				ItemStack air = new ItemStack(Material.AIR); // Purchased slot (Air clears the slot and makes it usable)
+				ItemStack firework = new ItemStack(Material.FIREWORK_STAR); // Item for slots that need to be purchased
+				ItemMeta meta = firework.getItemMeta();
+				meta.setDisplayName("Slot " + i);
+				meta.setDisplayName("Tu tienes: $" + money);
+				meta.setDisplayName("Tendras $" + finalBalance);
+				firework.setItemMeta(meta);
+				if (event.getRawSlot() == i) {
+					if (!jugador.hasPermission("CustomEnderChest_1." + i)) {
+						finalprice = start_price + (accumulator * i - accumulator * 27);
+						if (money >= finalprice) {
+
+							if (i == event.getView().getTopInventory().first(Material.FIREWORK_STAR)) {
+								if (event.getView().getItem(i).getItemMeta().getDisplayName()
+										.equals("Inventory Slot " + i)) {
+
+									econ.withdrawPlayer(jugador, start_price + (accumulator * i - accumulator * 27));
+
+									Bukkit.dispatchCommand(console,
+											"pex user " + jugador.getName() + " add CustomEnderChest_1." + i);
+									jugador.sendMessage("Has comprado un slot: " + i);
+									i = i - 1;
+									event.getInventory().setItem(i, air);
+									Bukkit.dispatchCommand(console, "pex user " + jugador.getName()
+											+ " add CustomEnderChest_1." + i);
+									i = i + 1;
+
+									event.getInventory().setItem(i, air);
+									event.setCancelled(true);
+								}
+							} else {
+								finalprice = 0;
+								for (int j = i; j >= 27; j--) {
+									finalprice = finalprice + (start_price + (accumulator * j - accumulator * 27));
+
+									if (j == event.getView().getTopInventory().first(Material.FIREWORK_STAR)) {
+										if (event.getView().getItem(i).getItemMeta().getDisplayName()
+												.equals("Slot " + i)) {
+											if (money >= finalprice) {
+												int x = j;
+												econ.withdrawPlayer(jugador, finalprice);
+
+												j = i - j;
+												if (j == 1) {
+
+													Bukkit.dispatchCommand(console, "pex user " + jugador.getName()
+															+ " add CustomEnderChest_1." + i);
+													event.getInventory().setItem(x, air);
+													event.getInventory().setItem(i, air);
+													x = x - 1;
+													Bukkit.dispatchCommand(console, "pex user " + jugador.getName()
+															+ " remove CustomEnderChest_1." + x);
+													x = x + 1;
+												} else {
+
+													for (int r = x; i >= r; i--) {
+
+														event.getInventory().setItem(i, air);
+													}
+													i = i + (j + 1);
+													Bukkit.dispatchCommand(console, "pex user " + jugador.getName()
+															+ " add CustomEnderChest_1." + i);
+
+													for (int a = i; a >= 26;) {
+														a--;
+														if (jugador.hasPermission("CustomEnderChest_1." + a)) {
+															Bukkit.dispatchCommand(console,
+																	"pex user " + jugador.getName()
+																			+ " remove CustomEnderChest_1."
+																			+ a);
+														}
+													}
+												}
+
+												j = j + 1;
+												jugador.sendMessage("Has comprado: " + j + " slots");
+												event.setCancelled(true);
+											} else {
+												jugador.sendMessage("No cuentas con el dinero suficiente para comprar estos slots.");
+												event.setCancelled(true);
+											}
+
+											return;
+										}
+									}
+
+								}
+
+							}
+
+						} else { 
+							
+							jugador.sendMessage("No tienes suficiente dinero para comprar este slot.");
+							event.setCancelled(true);
+
+						}
+//				}
+						return;
+					}
+					// posible provocador de error
+					return;
+				}
+			}
+
+		}
+	}
+
+	@EventHandler
+	public void OpenInventory(InventoryOpenEvent event) {
+		Player player = (Player) event.getPlayer();
+		FileConfiguration config = plugin.getConfig();
+		String name = config.getString("Inventory.first_ec_name");
+		Boolean hasBought = false;
+
+		String name1 = ChatColor.translateAlternateColorCodes('&', name);
+
+		if (event.getView().getTitle().equals(name1)) {
+			for (int i = 27; i < 45; i++) {
+				if (player.hasPermission("CustomEnderChest_1." + i)) {
+					for (int x = i; x >= 45;) {
+						finalprice = start_price + (accumulator * x - accumulator * 27);
+						ItemStack firework = new ItemStack(Material.FIREWORK_STAR);
+						ItemMeta meta = firework.getItemMeta();
+						meta.setDisplayName("Slot " + i);
+						List<String> lore = new ArrayList<String>();
+						lore.add("$" + finalprice);
+						meta.setLore(lore);
+						firework.setItemMeta(meta);
+						x++;
+						event.getView().getTopInventory().setItem(x, firework);
+
+					}
+					hasBought = true;
+					return;
+				}
+
+			}
+			if (hasBought == false) {
+
+				for (int a = 27; a < 45; a++) {
+
+					finalprice = start_price + (accumulator * a - accumulator * 27);
+					ItemStack firework = new ItemStack(Material.FIREWORK_STAR);
+					ItemMeta meta = firework.getItemMeta();
+					meta.setDisplayName("Slot " + a);
+					List<String> lore = new ArrayList<String>();
+					lore.add("$" + finalprice);
+					meta.setLore(lore);
+					firework.setItemMeta(meta);
+					event.getView().getTopInventory().setItem(a, firework);
+
+				}
+				return;
+			}
+		}
+	}
+}
